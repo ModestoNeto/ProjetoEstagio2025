@@ -29,19 +29,16 @@ Este é um aplicativo Flutter que permite criar lembretes visuais com notificaç
    cd nome-do-repositorio
 Instale as dependências:
 
-**2. Abra o terminal no VS Code ou na sua IDE favorita e execute o comando para instalar as dependências do projeto:**
+2. **Abra o terminal no VS Code ou na sua IDE favorita e execute o comando para instalar as dependências do projeto:**
 
-`bash
-Copiar
+`bash:
 flutter pub get`
 
 Isso vai baixar todos os pacotes necessários para o projeto, incluindo o shared_preferences que será utilizado para salvar os lembretes.
 
 **3. Adicione o pacote shared_preferences no pubspec.yaml:**
 Abra o arquivo `pubspec.yaml` no seu projeto e adicione o seguinte pacote na seção `dependencies`:
-`yaml
-Copiar
-dependencies:
+`dependencies:
   flutter:
     sdk: flutter
   flutter_local_notifications: ^9.1.4
