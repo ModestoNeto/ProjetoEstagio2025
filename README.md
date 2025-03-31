@@ -22,39 +22,79 @@ Este é um aplicativo Flutter que permite criar lembretes visuais com notificaç
 
 ### Passos para rodar o aplicativo
 
-1. **Clone o repositório**:
-   - Acesse o terminal e execute o comando abaixo para clonar o repositório para sua máquina:
-   ```bash
-   git clone https://github.com/seuusuario/nome-do-repositorio.git
-   cd nome-do-repositorio
-Instale as dependências:
+### 1. Clone o repositório
 
-2. **Abra o terminal no VS Code ou na sua IDE favorita e execute o comando para instalar as dependências do projeto:**
+```bash
+git clone https://github.com/seuusuario/nome-do-repositorio.git
+cd nome-do-repositorio
+```
 
-`bash:
-flutter pub get`
+### 2. Instale o Flutter
 
-Isso vai baixar todos os pacotes necessários para o projeto, incluindo o shared_preferences que será utilizado para salvar os lembretes.
+Se você ainda não tem o Flutter instalado:
 
-**3. Adicione o pacote shared_preferences no pubspec.yaml:**
-Abra o arquivo `pubspec.yaml` no seu projeto e adicione o seguinte pacote na seção `dependencies`:
-`dependencies:
+- Acesse: https://docs.flutter.dev/get-started/install  
+- Siga as instruções para o seu sistema operacional (Windows, macOS ou Linux)  
+- Adicione o Flutter ao seu `PATH`  
+- Confirme a instalação com:
+
+```bash
+flutter doctor
+```
+
+Resolva qualquer pendência indicada no relatório.
+
+### 3. Verifique e atualize o `pubspec.yaml`
+
+Certifique-se de que o seu arquivo `pubspec.yaml` contenha as dependências:
+
+```yaml
+dependencies:
   flutter:
     sdk: flutter
   flutter_local_notifications: ^9.1.4
   intl: ^0.17.0
   timezone: ^0.8.0
-  shared_preferences: ^2.0.11  # Adicione esta linha`
+  shared_preferences: ^2.0.11
+```
 
-Depois de salvar o arquivo `pubspec.yaml`, execute o comando `flutter pub get` novamente no terminal para garantir que o pacote `shared_preferences` seja instalado.
+Depois, instale os pacotes:
 
-**4 Substitua o código do `main.dart`:**
+```bash
+flutter pub get
+```
 
-Substitua o conteúdo do arquivo main.dart (ou o arquivo correspondente onde o código principal está) pelo código que você forneceu anteriormente. Isso incluirá a implementação de lembretes e notificações locais.
+### 4. Configure o Android (para notificações locais)
 
-**5. Execute o aplicativo:**
-Conecte um dispositivo Android ou inicie um emulador e execute o aplicativo com o comando.Com esse ultimo passo o aplicativo roda no dispositivo ou emulador, permitindo que você adicione, veja e remova lembretes com notificações locais.
+No arquivo `android/app/src/main/AndroidManifest.xml`, adicione as permissões:
+
+```xml
+<uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED"/>
+<uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+```
+
+Dentro da tag `<application>`, adicione:
+
+```xml
+<receiver android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver" android:exported="true">
+    <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED"/>
+        <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+    </intent-filter>
+</receiver>
+```
+
+### 5. Substitua o conteúdo do `main.dart`
+
+Abra o arquivo `lib/main.dart` e cole o código principal da aplicação, incluindo a lógica de lembretes, notificações e armazenamento.
+
+### 6. Execute o aplicativo
+
+Conecte um dispositivo físico ou inicie um emulador e rode o app com:
 
 ```bash
 flutter run
+```
+
+---
 
