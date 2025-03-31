@@ -56,10 +56,8 @@ Depois de salvar o arquivo `pubspec.yaml`, execute o comando `flutter pub get` n
 Substitua o conteúdo do arquivo main.dart (ou o arquivo correspondente onde o código principal está) pelo código que você forneceu anteriormente. Isso incluirá a implementação de lembretes e notificações locais.
 
 **5. Execute o aplicativo:**
-Conecte um dispositivo Android ou inicie um emulador e execute o aplicativo com o comando:
+Conecte um dispositivo Android ou inicie um emulador e execute o aplicativo com o comando.Com esse ultimo passo o aplicativo roda no dispositivo ou emulador, permitindo que você adicione, veja e remova lembretes com notificações locais.
 
 ```bash
-Copiar
 flutter run
 
-Isso deve compilar e rodar o aplicativo no dispositivo ou emulador, permitindo que você adicione, veja e remova lembretes com notificações locais.
