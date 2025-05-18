@@ -98,3 +98,26 @@ flutter run
 
 ---
 
+## 🔔 Lembretes Visuais com Notificações e Feedback
+
+Este projeto Flutter permite que o usuário crie lembretes com data e hora, receba notificações locais e envie feedback com avaliação de 1 a 5 estrelas e sugestões.
+
+---
+
+## ✅ Pré-requisitos
+
+- Flutter instalado e funcionando (`flutter doctor`)
+- Emulador ou dispositivo físico com Android API 21+
+
+---
+
+## 📦 Dependências (pubspec.yaml)
+
+```yaml
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_local_notifications: ^15.1.1
+  intl: ^0.18.1
+  timezone: ^0.9.2
+
