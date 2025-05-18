@@ -1,0 +1,281 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:intl/intl.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+
+void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'Lembretes Visuais',
+      theme: ThemeData(primarySwatch: Colors.blue),
+      home: ReminderScreen(),
+    );
+  }
+}
+
+class ReminderScreen extends StatefulWidget {
+  @override
+  _ReminderScreenState createState() => _ReminderScreenState();
+}
+
+class _ReminderScreenState extends State<ReminderScreen> {
+  final TextEditingController _titleController = TextEditingController();
+  DateTime? _selectedDateTime;
+  List<Map<String, dynamic>> _reminders = [];
+  final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeNotifications();
+  }
+
+  void _initializeNotifications() async {
+    tz.initializeTimeZones();
+    const AndroidInitializationSettings androidSettings =
+        AndroidInitializationSettings('@mipmap/ic_launcher');
+    final InitializationSettings settings = InitializationSettings(android: androidSettings);
+    await _notificationsPlugin.initialize(settings);
+  }
+
+  void _addReminder() {
+    if (_titleController.text.isEmpty || _selectedDateTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Preencha todos os campos!")),
+      );
+      return;
+    }
+
+    final reminder = {
+      'id': _selectedDateTime!.millisecondsSinceEpoch % 100000,
+      'title': _titleController.text,
+      'dateTime': _selectedDateTime,
+    };
+
+    setState(() {
+      _reminders.add(reminder);
+    });
+
+    _scheduleNotification(reminder['id'], reminder['title'], reminder['dateTime']);
+
+    _titleController.clear();
+    _selectedDateTime = null;
+  }
+
+  Future<void> _scheduleNotification(int id, String title, DateTime dateTime) async {
+    final tz.TZDateTime scheduledDate = tz.TZDateTime.from(dateTime, tz.local);
+
+    final AndroidNotificationDetails androidDetails = AndroidNotificationDetails(
+      'reminder_channel',
+      'Lembretes',
+      importance: Importance.high,
+      priority: Priority.high,
+      playSound: true,
+    );
+
+    final NotificationDetails details = NotificationDetails(android: androidDetails);
+
+    await _notificationsPlugin.zonedSchedule(
+      id,
+      'Lembrete',
+      title,
+      scheduledDate,
+      details,
+      androidAllowWhileIdle: true,
+      matchDateTimeComponents: DateTimeComponents.time,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+    );
+  }
+
+  Future<void> _pickDateTime() async {
+    DateTime now = DateTime.now();
+    DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: DateTime(2100),
+    );
+
+    if (pickedDate != null) {
+      TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.now(),
+      );
+
+      if (pickedTime != null) {
+        setState(() {
+          _selectedDateTime = DateTime(
+            pickedDate.year,
+            pickedDate.month,
+            pickedDate.day,
+            pickedTime.hour,
+            pickedTime.minute,
+          );
+        });
+      }
+    }
+  }
+
+  void _removeReminder(int index) {
+    int notificationId = _reminders[index]['id'];
+    _notificationsPlugin.cancel(notificationId);
+
+    setState(() {
+      _reminders.removeAt(index);
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Lembretes Visuais'),
+        actions: [
+          IconButton(
+            icon: Icon(Icons.feedback),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => FeedbackScreen()),
+              );
+            },
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(
+              controller: _titleController,
+              decoration: InputDecoration(labelText: 'Título do Lembrete'),
+            ),
+            SizedBox(height: 10),
+            Row(
+              children: [
+                Text(
+                  _selectedDateTime == null
+                      ? 'Selecione a Data e Hora'
+                      : DateFormat('dd/MM/yyyy HH:mm').format(_selectedDateTime!),
+                ),
+                Spacer(),
+                ElevatedButton(
+                  onPressed: _pickDateTime,
+                  child: Text('Escolher'),
+                ),
+              ],
+            ),
+            SizedBox(height: 10),
+            ElevatedButton(
+              onPressed: _addReminder,
+              child: Text('Adicionar Lembrete'),
+            ),
+            SizedBox(height: 20),
+            Expanded(
+              child: ListView.builder(
+                itemCount: _reminders.length,
+                itemBuilder: (context, index) {
+                  return Card(
+                    child: ListTile(
+                      title: Text(_reminders[index]['title']),
+                      subtitle: Text(
+                        DateFormat('dd/MM/yyyy HH:mm').format(_reminders[index]['dateTime']),
+                      ),
+                      trailing: IconButton(
+                        icon: Icon(Icons.delete, color: Colors.red),
+                        onPressed: () => _removeReminder(index),
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class FeedbackScreen extends StatefulWidget {
+  @override
+  _FeedbackScreenState createState() => _FeedbackScreenState();
+}
+
+class _FeedbackScreenState extends State<FeedbackScreen> {
+  int _rating = 0;
+  final TextEditingController _suggestionController = TextEditingController();
+
+  void _submitFeedback() {
+    if (_rating == 0) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Por favor, selecione uma nota.')),
+      );
+      return;
+    }
+
+    print('Avaliação: $_rating estrelas');
+    print('Sugestão: ${_suggestionController.text}');
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text('Obrigado pelo feedback!')),
+    );
+
+    Navigator.pop(context);
+  }
+
+  Widget _buildStar(int star) {
+    return IconButton(
+      icon: Icon(
+        _rating >= star ? Icons.star : Icons.star_border,
+        color: Colors.amber,
+      ),
+      onPressed: () {
+        setState(() {
+          _rating = star;
+        });
+      },
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('Feedback')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Text('Como você avalia este aplicativo?', style: TextStyle(fontSize: 16)),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: List.generate(5, (index) => _buildStar(index + 1)),
+            ),
+            SizedBox(height: 20),
+            TextField(
+              controller: _suggestionController,
+              maxLines: 4,
+              decoration: InputDecoration(
+                labelText: 'Sugestões ou melhorias',
+                border: OutlineInputBorder(),
+              ),
+            ),
+            SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _submitFeedback,
+              child: Text('Enviar Feedback'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
