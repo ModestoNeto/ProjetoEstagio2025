@@ -1,0 +1,208 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_local_notifications/flutter_local_notifications.dart';
+import 'package:hive/hive.dart';
+import 'package:hive_flutter/hive_flutter.dart';
+import 'package:intl/intl.dart';
+import 'package:timezone/data/latest_all.dart' as tz;
+import 'package:timezone/timezone.dart' as tz;
+
+part 'main.g.dart';
+
+@HiveType(typeId: 0)
+class Reminder extends HiveObject {
+  @HiveField(0)
+  int id;
+
+  @HiveField(1)
+  String title;
+
+  @HiveField(2)
+  DateTime dateTime;
+
+  @HiveField(3)
+  String category;
+
+  Reminder({required this.id, required this.title, required this.dateTime, required this.category});
+}
+
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Hive.initFlutter();
+  Hive.registerAdapter(ReminderAdapter());
+  await Hive.openBox<Reminder>('reminders');
+  runApp(MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      title: 'MemoVisu',
+      theme: ThemeData(useMaterial3: true, colorSchemeSeed: Colors.blue),
+      darkTheme: ThemeData.dark(),
+      themeMode: ThemeMode.system,
+      home: ReminderScreen(),
+    );
+  }
+}
+
+class ReminderScreen extends StatefulWidget {
+  @override
+  _ReminderScreenState createState() => _ReminderScreenState();
+}
+
+class _ReminderScreenState extends State<ReminderScreen> {
+  final TextEditingController _titleController = TextEditingController();
+  final TextEditingController _categoryController = TextEditingController();
+  DateTime? _selectedDateTime;
+  final FlutterLocalNotificationsPlugin _notificationsPlugin = FlutterLocalNotificationsPlugin();
+  final Box<Reminder> _reminderBox = Hive.box<Reminder>('reminders');
+
+  @override
+  void initState() {
+    super.initState();
+    _initializeNotifications();
+  }
+
+  void _initializeNotifications() async {
+    tz.initializeTimeZones();
+    const AndroidInitializationSettings androidSettings = AndroidInitializationSettings('@mipmap/ic_launcher');
+    final InitializationSettings settings = InitializationSettings(android: androidSettings);
+    await _notificationsPlugin.initialize(settings);
+  }
+
+  void _scheduleNotification(Reminder reminder) async {
+    final tz.TZDateTime scheduledDate = tz.TZDateTime.from(reminder.dateTime, tz.local);
+    final androidDetails = AndroidNotificationDetails('reminder_channel', 'Lembretes', importance: Importance.high);
+    final details = NotificationDetails(android: androidDetails);
+
+    await _notificationsPlugin.zonedSchedule(
+      reminder.id,
+      'Lembrete (${reminder.category})',
+      reminder.title,
+      scheduledDate,
+      details,
+      androidAllowWhileIdle: true,
+      matchDateTimeComponents: DateTimeComponents.dateAndTime,
+      uiLocalNotificationDateInterpretation: UILocalNotificationDateInterpretation.absoluteTime,
+    );
+  }
+
+  void _addReminder() async {
+    if (_titleController.text.isEmpty || _selectedDateTime == null || _categoryController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Preencha todos os campos!")));
+      return;
+    }
+    if (_selectedDateTime!.isBefore(DateTime.now())) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Escolha uma data futura.")));
+      return;
+    }
+
+    final newReminder = Reminder(
+      id: _selectedDateTime!.millisecondsSinceEpoch % 100000,
+      title: _titleController.text,
+      dateTime: _selectedDateTime!,
+      category: _categoryController.text,
+    );
+
+    await _reminderBox.add(newReminder);
+    _scheduleNotification(newReminder);
+
+    _titleController.clear();
+    _categoryController.clear();
+    _selectedDateTime = null;
+    setState(() {});
+  }
+
+  Future<void> _pickDateTime() async {
+    DateTime now = DateTime.now();
+    DateTime? pickedDate = await showDatePicker(
+      context: context,
+      initialDate: now,
+      firstDate: now,
+      lastDate: DateTime(2100),
+    );
+
+    if (pickedDate != null) {
+      TimeOfDay? pickedTime = await showTimePicker(
+        context: context,
+        initialTime: TimeOfDay.now(),
+      );
+
+      if (pickedTime != null) {
+        setState(() {
+          _selectedDateTime = DateTime(
+            pickedDate.year,
+            pickedDate.month,
+            pickedDate.day,
+            pickedTime.hour,
+            pickedTime.minute,
+          );
+        });
+      }
+    }
+  }
+
+  void _deleteReminder(Reminder reminder) async {
+    await _notificationsPlugin.cancel(reminder.id);
+    await reminder.delete();
+    setState(() {});
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: Text('MemoVisu')),
+      body: Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            TextField(controller: _titleController, decoration: InputDecoration(labelText: 'Título')),
+            SizedBox(height: 10),
+            TextField(controller: _categoryController, decoration: InputDecoration(labelText: 'Categoria')),
+            SizedBox(height: 10),
+            Row(
+              children: [
+                Text(_selectedDateTime == null ? 'Selecionar Data e Hora' : DateFormat('dd/MM/yyyy HH:mm').format(_selectedDateTime!)),
+                Spacer(),
+                ElevatedButton(onPressed: _pickDateTime, child: Text('Escolher')),
+              ],
+            ),
+            SizedBox(height: 10),
+            ElevatedButton(onPressed: _addReminder, child: Text('Adicionar Lembrete')),
+            SizedBox(height: 20),
+            Expanded(
+              child: ValueListenableBuilder(
+                valueListenable: _reminderBox.listenable(),
+                builder: (context, Box<Reminder> box, _) {
+                  final reminders = box.values.toList();
+                  if (reminders.isEmpty) return Center(child: Text('Nenhum lembrete.'));
+
+                  reminders.sort((a, b) => a.dateTime.compareTo(b.dateTime));
+
+                  return ListView.builder(
+                    itemCount: reminders.length,
+                    itemBuilder: (context, index) {
+                      final reminder = reminders[index];
+                      return Card(
+                        child: ListTile(
+                          title: Text(reminder.title),
+                          subtitle: Text('${DateFormat('dd/MM/yyyy HH:mm').format(reminder.dateTime)} - ${reminder.category}'),
+                          trailing: IconButton(
+                            icon: Icon(Icons.delete, color: Colors.red),
+                            onPressed: () => _deleteReminder(reminder),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
